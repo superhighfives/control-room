@@ -1,9 +1,16 @@
-# claude-code-reviews
+# control-room
 
-One review standard, shared across my repos.
+One review standard and one set of baseline rules, shared across my repos.
 
-[`REVIEW.md`](REVIEW.md) is the actual standard. [`.github/workflows/review.yml`](.github/workflows/review.yml)
-is a reusable workflow that runs it against a pull request.
+- [`REVIEW.md`](REVIEW.md) — *how* to review. Sections, what to raise, what to
+  leave alone.
+- [`BASELINE.md`](BASELINE.md) — *what* the code has to hold to. Hard rules,
+  plus an explicit do-not-flag list.
+- [`.github/workflows/review.yml`](.github/workflows/review.yml) — reusable
+  workflow that runs both against a pull request.
+
+Each repo's own `CLAUDE.md` adds to `BASELINE.md` and wins where they disagree.
+Nothing needs syncing — the workflow checks this repo out at review time.
 
 ## Why this exists
 
@@ -86,11 +93,19 @@ jobs:
 | `standards_ref` | `main` | Pin to a tag or SHA if you want a repo to hold still. |
 | `timeout_minutes` | `20` | |
 
-## Per-repo standards
+## Adding a rule
 
-`REVIEW.md` is the baseline. Repo-specific rules belong in that repo's
-`CLAUDE.md` — the reviewer reads the root file plus any in directories the PR
-touched, and holds the change to them.
+`BASELINE.md` is meant to grow. Two tests before a rule goes in:
 
-That split is deliberate: this repo says how to review, `CLAUDE.md` says how
-that codebase wants to be written.
+1. **Would removing it cause a mistake?** If Biome or `tsc` already catches it,
+   or Claude already gets it right, it's noise — and a bloated file dilutes the
+   rules that matter.
+2. **Would you want a bot to block a PR over it?** If not, it goes in
+   Preferences, not Rules. Unqualified rules produce false positives, and false
+   positives are how you learn to ignore the reviewer.
+
+Phrase rules so a violation is visible in the diff: name the token, state the
+scope, put the exception in the same sentence. "Never use `as` to silence a type
+error; narrow with a type guard" is checkable. "Handle errors properly" is not.
+
+Repo-specific rules go in that repo's own `CLAUDE.md`, not here.

@@ -88,9 +88,18 @@ jobs:
             ${{ github.repository }}, then post your review as a PR comment
             using `gh pr comment`.
 
-            Read `.claude-review/REVIEW.md` first and follow it exactly. It
-            defines the review standard — the sections to write, what you are
-            expected to raise, and what to leave alone.
+            Read these two files first and follow them exactly:
+
+            - `.claude-review/REVIEW.md` — how to review. The sections to
+              write, what you are expected to raise, what to leave alone.
+            - `.claude-review/BASELINE.md` — the rules the change must hold to.
+              Flag violations of its Rules section. Do not flag anything in its
+              Preferences section or its linter/typechecker section.
+
+            Then read this repository's own CLAUDE.md files, if any — the root
+            one, plus any in directories this PR touched. They add to the
+            baseline, and they win where the two disagree. Say which file a rule
+            came from when you flag it.
 
             ${{ inputs.verify_commands != '' && 'Dependencies are installed. Run these commands and report the real output:' || 'Dependencies are NOT installed in this sandbox. Do not claim you ran the typechecker or linter — say plainly that you reviewed by reading.' }}
             ${{ inputs.verify_commands }}
