@@ -31,6 +31,13 @@ on:
   pull_request:
     types: [opened, synchronize, ready_for_review, reopened]
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+  actions: read
+
 jobs:
   review:
     uses: superhighfives/claude-code-reviews/.github/workflows/review.yml@main
@@ -40,10 +47,23 @@ jobs:
 
 That works with no dependency install — the reviewer reads the code and says so.
 
+**The `permissions` block is required, not optional.** A called workflow can
+only narrow the caller's permissions, never widen them. If your repo's default
+workflow token is read-only (Settings → Actions → Workflow permissions), leaving
+it out fails the run at startup with `startup_failure` and no job, no log, and
+no annotation explaining why.
+
 To let it actually run your typechecker and linter rather than reasoning about
 them from source, pass the commands:
 
 ```yaml
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+  actions: read
+
 jobs:
   review:
     uses: superhighfives/claude-code-reviews/.github/workflows/review.yml@main
