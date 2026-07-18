@@ -47,7 +47,7 @@ permissions:
 
 jobs:
   review:
-    uses: superhighfives/claude-code-reviews/.github/workflows/review.yml@main
+    uses: superhighfives/control-room/.github/workflows/review.yml@main
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 ```
@@ -73,7 +73,7 @@ permissions:
 
 jobs:
   review:
-    uses: superhighfives/claude-code-reviews/.github/workflows/review.yml@main
+    uses: superhighfives/control-room/.github/workflows/review.yml@main
     with:
       setup_command: pnpm install --frozen-lockfile
       verify_commands: |

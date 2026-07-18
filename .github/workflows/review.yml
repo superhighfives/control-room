@@ -24,7 +24,7 @@ on:
         required: false
         default: ''
       standards_ref:
-        description: Ref of superhighfives/claude-code-reviews to pin the review standard to.
+        description: Ref of superhighfives/control-room to pin the review standard to.
         type: string
         required: false
         default: main
@@ -61,7 +61,7 @@ jobs:
       - name: Checkout review standard
         uses: actions/checkout@v4
         with:
-          repository: superhighfives/claude-code-reviews
+          repository: superhighfives/control-room
           ref: ${{ inputs.standards_ref }}
           path: .claude-review
 
