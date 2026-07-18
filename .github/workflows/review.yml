@@ -1,0 +1,96 @@
+name: Claude Code Review (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      node_version:
+        description: Node version used for the optional dependency install.
+        type: string
+        required: false
+        default: '22'
+      setup_command:
+        description: >-
+          Command that installs dependencies, so the reviewer can actually run
+          your typechecker and linter instead of reasoning about them from
+          source. Empty skips install entirely.
+        type: string
+        required: false
+        default: ''
+      verify_commands:
+        description: >-
+          Commands the reviewer should run against the branch, one per line.
+          Only useful alongside setup_command.
+        type: string
+        required: false
+        default: ''
+      standards_ref:
+        description: Ref of superhighfives/claude-code-reviews to pin the review standard to.
+        type: string
+        required: false
+        default: main
+      timeout_minutes:
+        description: Fail loudly rather than hanging to GitHub's 6h default.
+        type: number
+        required: false
+        default: 20
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout_minutes }}
+    # Newest push to a PR wins; cancel stale review runs instead of piling up.
+    concurrency:
+      group: claude-review-${{ github.repository }}-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Full history so the reviewer can read git blame for context.
+          fetch-depth: 0
+
+      - name: Checkout review standard
+        uses: actions/checkout@v4
+        with:
+          repository: superhighfives/claude-code-reviews
+          ref: ${{ inputs.standards_ref }}
+          path: .claude-review
+
+      - name: Set up Node
+        if: inputs.setup_command != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+
+      - name: Install dependencies
+        if: inputs.setup_command != ''
+        run: |
+          corepack enable
+          ${{ inputs.setup_command }}
+
+      - name: Run Claude Code Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          additional_permissions: |
+            actions: read
+          prompt: |
+            Review pull request #${{ github.event.pull_request.number }} in
+            ${{ github.repository }}, then post your review as a PR comment
+            using `gh pr comment`.
+
+            Read `.claude-review/REVIEW.md` first and follow it exactly. It
+            defines the review standard — the sections to write, what you are
+            expected to raise, and what to leave alone.
+
+            ${{ inputs.verify_commands != '' && 'Dependencies are installed. Run these commands and report the real output:' || 'Dependencies are NOT installed in this sandbox. Do not claim you ran the typechecker or linter — say plainly that you reviewed by reading.' }}
+            ${{ inputs.verify_commands }}
