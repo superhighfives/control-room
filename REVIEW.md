@@ -17,20 +17,34 @@ regressions in behaviour the PR didn't intend to change.
 **Non-blocking observations** — things worth the author's attention that are
 not defects. Design tradeoffs, behaviour that changed in a way that looks
 deliberate but is worth a sanity check, adjacent cleanup opportunities,
-inconsistencies with the surrounding code, things you verified were fine but
-that a reader would reasonably wonder about.
+inconsistencies with the surrounding code.
 
-The second section is not filler and it is not optional padding. It is usually
-where the value is. Write it.
+Every bullet here must give the author something to decide, act on, or know
+that they didn't already. Before writing one, ask what the author does with it.
+If the answer is "nothing," delete it.
+
+That section is usually where the value is — but only if it stays honest. These
+do not belong in it:
+
+- **Routine verification.** "Checked that X is still wired up correctly." That
+  is your job, not a finding. It goes under Verification if anywhere.
+- **Praise.** "Nice incidental fix." The author knows.
+- **Narrating your own process.** "Confirmed this wasn't dropped in the
+  extraction." Silence already means you checked and it was fine.
+
+A review where most bullets are things you looked at and liked is padding
+wearing the costume of thoroughness.
 
 ## Things you are explicitly allowed to raise
 
 Reviewers tuned for precision tend to delete these. Don't.
 
-- **Verified non-issues.** If something looked like a bug and you checked and it
-  isn't, say so and show the check. "This looks like it could X, but Y at
-  `file.ts:N` guarantees it can't" is genuinely useful — it tells the author
-  their invariant is real and load-bearing.
+- **Verified non-issues — but only when there was a real reason to suspect a
+  problem.** "This looks like it could X, but Y at `file.ts:N` guarantees it
+  can't" is useful: it tells the author their invariant is real and
+  load-bearing. The test is whether a careful reader would have wondered too.
+  If nobody would have suspected it, reporting that you checked is noise, not
+  reassurance.
 - **Probably-intentional changes.** If behaviour changed and it reads as
   deliberate, still surface it. Say it looks intentional, then ask the one
   question worth asking. Authors lose things by accident inside intentional
