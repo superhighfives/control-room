@@ -3,10 +3,17 @@ name: Claude Code Review (reusable)
 on:
   workflow_call:
     inputs:
+      runs_on:
+        description: >-
+          Runner label. Use macos-latest for anything needing Xcode.
+        type: string
+        required: false
+        default: ubuntu-latest
       runtime:
         description: >-
-          Which runtime to set up before setup_command — "node" or "bun".
-          Ignored when setup_command is empty.
+          Which runtime to set up before setup_command — "node", "bun", or
+          "none" when the toolchain is already on the runner. Ignored when
+          setup_command is empty.
         type: string
         required: false
         default: node
@@ -46,7 +53,7 @@ on:
 
 jobs:
   review:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs_on }}
     timeout-minutes: ${{ inputs.timeout_minutes }}
     # Newest push to a PR wins; cancel stale review runs instead of piling up.
     concurrency:
@@ -119,9 +126,16 @@ jobs:
 
             - `.claude-review/REVIEW.md` — how to review. The sections to
               write, what you are expected to raise, what to leave alone.
-            - `.claude-review/BASELINE.md` — the rules the change must hold to.
-              Flag violations of its Rules section. Do not flag anything in its
-              Preferences section or its linter/typechecker section.
+            - `.claude-review/BASELINE.md` — the language-agnostic rules the
+              change must hold to. Flag violations of its Rules section. Do not
+              flag anything in its Preferences section or its linter section.
+
+            Then list `.claude-review/languages/` and read the file for each
+            language this PR actually touches, if one exists. Those sharpen the
+            baseline into the specific forms its rules take in that language.
+            Skip the ones the PR doesn't touch, and don't invent rules for a
+            language with no file — fall back to the baseline and the
+            conventions visible in the surrounding code.
 
             Then read this repository's own CLAUDE.md files, if any — the root
             one, plus any in directories this PR touched. They add to the

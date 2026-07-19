@@ -1,7 +1,8 @@
 # Baseline
 
-Rules that apply across my projects. Each repo's own `CLAUDE.md` adds to this
-and wins where they disagree.
+Rules that apply across my projects, whatever they're written in.
+Language-specific rules live in [`languages/`](languages/). Each repo's own
+`CLAUDE.md` adds to both and wins where they disagree.
 
 Two audiences: Claude writing code, and the PR reviewer
 ([REVIEW.md](REVIEW.md)) holding changes to it. So every rule here has to be
@@ -12,45 +13,50 @@ Preferences at the bottom, not in Rules.
 
 Reviewer: flag violations of these.
 
-**Never use `as` to silence a type error.** Narrow with a type guard, or fix the
-type. `as const` and `as unknown as T` at a genuine external boundary (parsed
-JSON, third-party types) are fine — everything else is a suppressed bug.
+**Never silence a type error — fix the type.** Every language has an escape
+hatch for asserting something the compiler can't prove: a cast, a force-unwrap,
+a suppression comment. Reaching for one to make an error go away buries a bug
+instead of fixing it. Legitimate uses exist at genuine external boundaries
+(parsed input, third-party types); those should be obvious from context, and
+worth a comment when they aren't.
 
-**Never use `any` in `src/**`.** Use `unknown` and narrow. Tests may use `any`
-in fixtures.
+**Never swallow an error.** Catching an error and discarding it — or only
+logging it — is not error handling. Rethrow, return it, or report it. If the
+catch really is intentional, say why in a comment. Empty catch blocks and
+ignored error returns are findings every time.
 
-**Never swallow an error.** `catch (e) {}` and `catch (e) { console.error(e) }`
-are not error handling. Rethrow, return a typed error, or report it — and if the
-catch is genuinely intentional, say why in a comment.
+**Never interpolate untrusted input into a query, command, or path.** Use
+parameterised queries, argument arrays, and path-joining APIs. String
+concatenation carrying a request value into SQL, a shell command, or a
+filesystem path is a finding every time.
 
-**Never interpolate user input into SQL.** Use the query builder, or `sql` with
-placeholders. A template literal carrying a request value into a query is a
-finding every time.
+**Validate external input before use.** Anything crossing a trust boundary —
+request bodies, query params, webhook payloads, file contents, IPC messages —
+gets parsed and checked before it's used, not cast into the expected shape and
+hoped for.
 
-**Validate request bodies before use.** Any handler reading `c.req.json()`,
-`request.json()`, or form data parses it through a schema first. Do not cast the
-result.
+**Never commit secrets.** No API keys, tokens, credentials, or connection
+strings in source, tests, or fixtures — including ones that look fake.
 
-**Never commit secrets.** No API keys, tokens, or connection strings in source,
-tests, or fixtures — including ones that look fake. Use env bindings.
-
-**Don't edit generated files by hand.** `routeTree.gen.ts`, `worker-configuration.d.ts`,
-`drizzle/**` migrations, and anything with a generated-file header. Change the
-source and regenerate.
+**Don't edit generated files by hand.** Anything produced by a build step,
+codegen tool, or migration generator. Change the source and regenerate. Each
+repo's `CLAUDE.md` names its own.
 
 **Migrations are append-only.** Never edit or delete a migration that has been
 applied to a deployed environment. Add a new one.
 
-**No module-scope mutable state in Workers code.** Isolates are reused across
-requests, so a module-level cache, counter, or accumulating array leaks data
-between users. Put per-request state in the handler.
-
 **Don't widen a public API to fix a caller.** If a function needs different
 behaviour, add a parameter with a default or a new function — don't loosen a
-type or make a required field optional so one call site compiles.
+type, relax a constraint, or make a required field optional so one call site
+compiles.
 
-**New exported functions in `src/**` get a colocated test.** Behaviour-preserving
-refactors don't need new tests. Bug fixes do — one that fails without the fix.
+**No shared mutable state across requests or invocations.** In any environment
+where the process outlives a single unit of work — Workers isolates, long-lived
+servers, background workers — module- or global-scope mutable state leaks
+between users. Keep per-request state in the request scope.
+
+**New public functions get a test.** Behaviour-preserving refactors don't need
+new tests. Bug fixes do — one that fails without the fix.
 
 ## Preferences
 
@@ -62,7 +68,6 @@ grounds for blocking a PR.
 - Prefer early returns to `else` branches.
 - Don't extract a single-use helper preemptively — inline it unless it's reused
   or hides a genuinely complex boundary.
-- Prefer named exports.
 - Comments explain *why*, not *what*. Don't narrate the code.
 - Match the file you're editing over any general convention.
 
@@ -73,11 +78,10 @@ grounds for blocking a PR.
 - Say why the change exists. The diff already says what it does.
 - Never use `--force` on a shared branch. `--force-with-lease` on your own.
 
-## What the linter and typechecker own
+## What the linter, formatter, and compiler own
 
 Don't spend rules on these. Reviewer: report them only as part of the raw
-command output, never as a finding. Biome and `tsc` already catch them, and the
-review runs both:
+command output, never as a finding:
 
-unused imports and variables, formatting, import order, `const` vs `let`,
-missing return types, unreachable code, exhaustive switch checks.
+unused imports and variables, formatting, import order, mutability keywords,
+missing return types, unreachable code, exhaustiveness checks.

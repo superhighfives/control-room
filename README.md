@@ -89,10 +89,24 @@ jobs:
 | --- | --- | --- |
 | `setup_command` | `''` | Dependency install. Empty skips it, and the reviewer is told not to claim it ran checks. |
 | `verify_commands` | `''` | One command per line. Only meaningful with `setup_command`. |
-| `runtime` | `node` | `node` or `bun`. Picks which setup action runs before `setup_command`. |
+| `runtime` | `node` | `node`, `bun`, or `none` when the toolchain is already on the runner. |
+| `runs_on` | `ubuntu-latest` | Runner label. `macos-latest` for anything needing Xcode. |
 | `node_version` | `22` | Only when `runtime` is `node`. |
 | `standards_ref` | `main` | Pin to a tag or SHA if you want a repo to hold still. |
 | `timeout_minutes` | `20` | |
+
+## Languages
+
+[`BASELINE.md`](BASELINE.md) is language-agnostic — it states each rule in terms
+of the thing that goes wrong, not the syntax that causes it. Files in
+[`languages/`](languages/) sharpen those into the specific forms a rule takes:
+`as` and `any` in [TypeScript](languages/typescript.md), `!` and `try!` in
+[Swift](languages/swift.md).
+
+The reviewer reads the baseline, then only the language files a PR actually
+touches. A language with no file still gets reviewed — against the baseline and
+the conventions visible in the surrounding code — it just doesn't get the
+sharpened version. Adding a language is one new file; nothing else changes.
 
 ## PRs that change the workflow can't be reviewed
 
