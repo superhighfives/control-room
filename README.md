@@ -94,6 +94,21 @@ jobs:
 | `standards_ref` | `main` | Pin to a tag or SHA if you want a repo to hold still. |
 | `timeout_minutes` | `20` | |
 
+## PRs that change the workflow can't be reviewed
+
+`claude-code-action` validates that the calling workflow file is byte-identical
+to the copy on the default branch. Any PR that edits `.github/workflows/`
+fails that check, and the action **skips and exits 0** — green tick, no comment,
+about one second of runtime.
+
+That silence is the same failure this repo exists to fix: a review that says
+nothing looks exactly like a review that found nothing. So the workflow checks
+whether a review was actually posted and, if not, comments explaining why. It
+posts once per PR, not once per push.
+
+Nothing can make those PRs reviewable — the validation happens before Claude
+runs. Merging is what fixes it.
+
 ## Adding a rule
 
 `BASELINE.md` is meant to grow. Two tests before a rule goes in:

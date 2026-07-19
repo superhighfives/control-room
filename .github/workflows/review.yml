@@ -90,7 +90,12 @@ jobs:
           if [ "${{ inputs.runtime }}" = "node" ]; then corepack enable; fi
           ${{ inputs.setup_command }}
 
+      - name: Mark review start
+        id: started
+        run: echo "at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       - name: Run Claude Code Review
+        id: claude
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -125,3 +130,54 @@ jobs:
 
             ${{ inputs.verify_commands != '' && 'Dependencies are installed. Run these commands and report the real output:' || 'Dependencies are NOT installed in this sandbox. Do not claim you ran the typechecker or linter — say plainly that you reviewed by reading.' }}
             ${{ inputs.verify_commands }}
+
+      # The action exits 0 in several silent cases — most commonly workflow
+      # validation ("the workflow file must have identical content to the
+      # version on the default branch"), which fires on any PR that edits the
+      # review workflow. A green check with no comment is indistinguishable
+      # from a clean review, which is the exact failure this whole setup
+      # exists to prevent. So say something, every time.
+      - name: Say something if no review was posted
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          SINCE: ${{ steps.started.outputs.at }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          MARKER: '<!-- control-room:no-review -->'
+        run: |
+          set -euo pipefail
+
+          posted=$(gh api "repos/$REPO/issues/$PR/comments?since=$SINCE" \
+            --jq '[.[] | select(.user.login | test("claude"; "i"))] | length')
+          if [ "$posted" -gt 0 ]; then
+            echo "Review posted; nothing to do."
+            exit 0
+          fi
+
+          # Don't repeat ourselves on every push to the same PR.
+          if gh api "repos/$REPO/issues/$PR/comments" --paginate \
+               --jq '.[].body' | grep -qF "$MARKER"; then
+            echo "Already explained on this PR; not commenting again."
+            exit 0
+          fi
+
+          if ! git diff --quiet "origin/$BASE" HEAD -- .github/workflows/; then
+            reason="This PR changes a file under \`.github/workflows/\`. The action requires the
+          workflow file to be byte-identical to the copy on \`$BASE\`, so it skips
+          and exits 0 — which is why the check is green. **This PR has not been
+          reviewed.** It will work normally once merged."
+          else
+            reason="The review step finished without leaving a comment, and this PR doesn't
+          touch \`.github/workflows/\`, so workflow validation isn't the cause.
+          Worth checking the run log."
+          fi
+
+          gh pr comment "$PR" --repo "$REPO" --body "$MARKER
+          ### Code review skipped
+
+          $reason
+
+          [Run log]($RUN_URL)"
