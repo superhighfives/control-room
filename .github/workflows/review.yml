@@ -83,6 +83,15 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           additional_permissions: |
             actions: read
+          # Without this the job is a black box: Claude runs for minutes,
+          # produces nothing visible, and a failure to post looks identical
+          # to a clean review.
+          show_full_output: true
+          # Agent mode grants no tools by default, so the review had no way to
+          # run gh, git blame, or the verify commands. Bash is broad, but fork
+          # PRs don't receive secrets and the token is read-mostly.
+          claude_args: |
+            --allowedTools Bash,Read,Grep,Glob
           prompt: |
             Review pull request #${{ github.event.pull_request.number }} in
             ${{ github.repository }}, then post your review as a PR comment
