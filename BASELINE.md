@@ -54,8 +54,10 @@ refactors don't need new tests. Bug fixes do — one that fails without the fix.
 
 ## Preferences
 
-Reviewer: do not flag these. They're for Claude writing code, not grounds for
-blocking a PR.
+Reviewer: **do not mention these at all** — not as a finding, not as a
+non-blocking note, not to explain that you're not flagging them. Raising one
+"but only as a preference" is still noise. They're for Claude writing code, not
+grounds for blocking a PR.
 
 - Prefer early returns to `else` branches.
 - Don't extract a single-use helper preemptively — inline it unless it's reused
@@ -73,8 +75,9 @@ blocking a PR.
 
 ## What the linter and typechecker own
 
-Don't spend rules on these, and reviewer: don't flag them. Biome and `tsc`
-already catch them, and the review runs both:
+Don't spend rules on these. Reviewer: report them only as part of the raw
+command output, never as a finding. Biome and `tsc` already catch them, and the
+review runs both:
 
 unused imports and variables, formatting, import order, `const` vs `let`,
 missing return types, unreachable code, exhaustive switch checks.

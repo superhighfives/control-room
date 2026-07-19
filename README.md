@@ -89,7 +89,8 @@ jobs:
 | --- | --- | --- |
 | `setup_command` | `''` | Dependency install. Empty skips it, and the reviewer is told not to claim it ran checks. |
 | `verify_commands` | `''` | One command per line. Only meaningful with `setup_command`. |
-| `node_version` | `22` | Used for the install step. |
+| `runtime` | `node` | `node` or `bun`. Picks which setup action runs before `setup_command`. |
+| `node_version` | `22` | Only when `runtime` is `node`. |
 | `standards_ref` | `main` | Pin to a tag or SHA if you want a repo to hold still. |
 | `timeout_minutes` | `20` | |
 

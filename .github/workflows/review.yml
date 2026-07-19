@@ -3,8 +3,15 @@ name: Claude Code Review (reusable)
 on:
   workflow_call:
     inputs:
+      runtime:
+        description: >-
+          Which runtime to set up before setup_command — "node" or "bun".
+          Ignored when setup_command is empty.
+        type: string
+        required: false
+        default: node
       node_version:
-        description: Node version used for the optional dependency install.
+        description: Node version, when runtime is "node".
         type: string
         required: false
         default: '22'
@@ -66,15 +73,21 @@ jobs:
           path: .claude-review
 
       - name: Set up Node
-        if: inputs.setup_command != ''
+        if: inputs.setup_command != '' && inputs.runtime == 'node'
         uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node_version }}
 
+      - name: Set up Bun
+        if: inputs.setup_command != '' && inputs.runtime == 'bun'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
       - name: Install dependencies
         if: inputs.setup_command != ''
         run: |
-          corepack enable
+          if [ "${{ inputs.runtime }}" = "node" ]; then corepack enable; fi
           ${{ inputs.setup_command }}
 
       - name: Run Claude Code Review
