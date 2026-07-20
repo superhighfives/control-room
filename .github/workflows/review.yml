@@ -120,7 +120,20 @@ jobs:
           prompt: |
             Review pull request #${{ github.event.pull_request.number }} in
             ${{ github.repository }}, then post your review as a PR comment
-            using `gh pr comment`.
+            using `gh pr comment`. Begin the comment body with the exact line
+            `<!-- control-room:review -->` so later rounds can find it.
+
+            This PR may already have earlier reviews from you. Before you review,
+            read the existing PR comments (`gh pr view
+            ${{ github.event.pull_request.number }} --json comments`, or `gh api
+            repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments`)
+            and pick out the ones whose body starts with
+            `<!-- control-room:review -->`. Those are your prior rounds. REVIEW.md's
+            "Reviewing across rounds" section tells you how they change this
+            review — which blocking items were already raised and whether the new
+            commits addressed them, which non-blocking observations you've already
+            made, and when the right move is to land the PR rather than keep
+            hunting.
 
             Read these two files first and follow them exactly:
 

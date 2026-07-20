@@ -108,6 +108,24 @@ touches. A language with no file still gets reviewed — against the baseline an
 the conventions visible in the surrounding code — it just doesn't get the
 sharpened version. Adding a language is one new file; nothing else changes.
 
+## Reviews land
+
+The review runs again on every push, and each run is stateless — it reads the
+whole diff fresh. To keep that from meaning "hunt for a new nit forever," each
+round first reads its own earlier reviews on the PR (every review starts with a
+`<!-- control-room:review -->` marker so they're findable) and calibrates:
+
+- **Blocking** is re-derived every round, so a new push that introduces a new
+  blocking bug still gets caught.
+- **Non-blocking** shrinks instead of refreshing. An observation you already
+  made and pushed past is one you've chosen to accept, so it isn't raised again
+  — and the reviewer doesn't manufacture a replacement.
+
+When blocking is clear and the author has already iterated, the review leads
+with a verdict — ready to merge, production-ready even if not perfect — and
+stops. A cleared PR converges to "done" in a couple of rounds instead of
+generating fresh nits indefinitely.
+
 ## PRs that change the workflow can't be reviewed
 
 `claude-code-action` validates that the calling workflow file is byte-identical
