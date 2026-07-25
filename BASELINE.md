@@ -11,52 +11,63 @@ Preferences at the bottom, not in Rules.
 
 ## Rules
 
-Reviewer: flag violations of these.
+Reviewer: flag violations of these. Each rule is tagged with the category lens
+it belongs to and its **default severity** — the label the finding carries
+unless the specific context changes it. Inherit the tag rather than re-deciding
+it from scratch: a ⛔ rule produces a ⛔ finding, a ⚠️ rule a ⚠️ one. Context
+still moves it — the same violation in a test file or with a stated
+justification downgrades per REVIEW.md's exemptions, and a ⚠️ with clear
+production impact hardens toward blocking. See REVIEW.md for what the tags mean.
 
-**Never silence a type error — fix the type.** Every language has an escape
+⛔ 🧹 **Never silence a type error — fix the type.** Every language has an escape
 hatch for asserting something the compiler can't prove: a cast, a force-unwrap,
 a suppression comment. Reaching for one to make an error go away buries a bug
 instead of fixing it. Legitimate uses exist at genuine external boundaries
 (parsed input, third-party types); those should be obvious from context, and
 worth a comment when they aren't.
 
-**Never swallow an error.** Catching an error and discarding it — or only
+⛔ 🧹 **Never swallow an error.** Catching an error and discarding it — or only
 logging it — is not error handling. Rethrow, return it, or report it. If the
 catch really is intentional, say why in a comment. Empty catch blocks and
 ignored error returns are findings every time.
 
-**Never interpolate untrusted input into a query, command, or path.** Use
+⛔ 🔒 **Never interpolate untrusted input into a query, command, or path.** Use
 parameterised queries, argument arrays, and path-joining APIs. String
 concatenation carrying a request value into SQL, a shell command, or a
 filesystem path is a finding every time.
 
-**Validate external input before use.** Anything crossing a trust boundary —
+⛔ 🔒 **Validate external input before use.** Anything crossing a trust boundary —
 request bodies, query params, webhook payloads, file contents, IPC messages —
 gets parsed and checked before it's used, not cast into the expected shape and
 hoped for.
 
-**Never commit secrets.** No API keys, tokens, credentials, or connection
+⛔ 🔒 **Never commit secrets.** No API keys, tokens, credentials, or connection
 strings in source, tests, or fixtures — including ones that look fake.
 
-**Don't edit generated files by hand.** Anything produced by a build step,
+⚠️ 🧹 **Don't edit generated files by hand.** Anything produced by a build step,
 codegen tool, or migration generator. Change the source and regenerate. Each
 repo's `CLAUDE.md` names its own.
 
-**Migrations are append-only.** Never edit or delete a migration that has been
+⛔ 🧹 **Migrations are append-only.** Never edit or delete a migration that has been
 applied to a deployed environment. Add a new one.
 
-**Don't widen a public API to fix a caller.** If a function needs different
+⚠️ 🧹 **Don't widen a public API to fix a caller.** If a function needs different
 behaviour, add a parameter with a default or a new function — don't loosen a
 type, relax a constraint, or make a required field optional so one call site
 compiles.
 
-**No shared mutable state across requests or invocations.** In any environment
+⛔ 🔒 **No shared mutable state across requests or invocations.** In any environment
 where the process outlives a single unit of work — Workers isolates, long-lived
 servers, background workers — module- or global-scope mutable state leaks
 between users. Keep per-request state in the request scope.
 
-**New public functions get a test.** Behaviour-preserving refactors don't need
+⚠️ 🧹 **New public functions get a test.** Behaviour-preserving refactors don't need
 new tests. Bug fixes do — one that fails without the fix.
+
+Rules on the AI/LLM surface (🤖) live in each repo's own `CLAUDE.md` where that
+surface exists — an unvalidated tool argument, an injectable prompt, or a
+hardcoded model ID is reviewed against the same Rules above, just under the 🤖
+lens.
 
 ## Preferences
 

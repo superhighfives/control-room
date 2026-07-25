@@ -119,29 +119,69 @@ jobs:
             --allowedTools Bash,Read,Grep,Glob
           prompt: |
             Review pull request #${{ github.event.pull_request.number }} in
-            ${{ github.repository }}, then post your review as a PR comment
-            using `gh pr comment`. Begin the comment body with the exact line
-            `<!-- control-room:review -->` so later rounds can find it.
+            ${{ github.repository }}, then submit it as a single POST to the
+            reviews API so the summary and the inline comments land atomically.
+            Write the JSON payload to `$RUNNER_TEMP/review.json` (a later step
+            falls back to that exact file if your POST doesn't land), then send it:
+
+              gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews --input "$RUNNER_TEMP/review.json"
+
+            The payload looks like:
+
+              {
+                "event": "REQUEST_CHANGES",
+                "body": "<!-- control-room:review -->\n## 🔴 Changes requested\n...summary, verdict table, per-category rollups...",
+                "comments": [
+                  { "path": "src/db.ts", "line": 42, "side": "RIGHT",
+                    "body": "⛔ **[BLOCKING]** request `id` is concatenated into SQL..." }
+                ]
+              }
+
+            Rules for the payload:
+
+            - `event` comes from your overall verdict (see REVIEW.md's Verdicts
+              table): 🔴 → `REQUEST_CHANGES`, 🟡 → `COMMENT`, 🟢 → `APPROVE`.
+            - `body` MUST begin with the exact line `<!-- control-room:review -->`
+              so later rounds can find it, followed by the overall verdict, the
+              category table, and the per-category rollups.
+            - Put every ⛔ and ⚠️ finding on a line the diff touches into
+              `comments`, anchored to that line (`side` is `RIGHT` for added/
+              context lines, `LEFT` for removed ones). The reviews API can only
+              attach inline comments to lines in the diff — pre-existing or
+              adjacent findings on untouched lines, and all ℹ️ / 💡 / ❓, stay in
+              the body under their category.
+            - If `event` is `APPROVE` and the API returns 422 because the token
+              can't approve its own review, resubmit with `event` set to
+              `COMMENT` and note in the body that you intended to approve.
+            - If the POST fails because an inline comment targets a line outside
+              the diff (a common 422), move that finding into the body and drop
+              it from `comments`, then resubmit. A review must land — if you
+              can't get the inline comments to take, POST with an empty
+              `comments` array rather than posting nothing.
 
             This PR may already have earlier reviews from you. Before you review,
-            read the existing PR comments (`gh pr view
-            ${{ github.event.pull_request.number }} --json comments`, or `gh api
-            repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments`)
-            and pick out the ones whose body starts with
-            `<!-- control-room:review -->`. Those are your prior rounds. REVIEW.md's
-            "Reviewing across rounds" section tells you how they change this
-            review — which blocking items were already raised and whether the new
-            commits addressed them, which non-blocking observations you've already
-            made, and when the right move is to land the PR rather than keep
-            hunting.
+            read your prior review bodies (`gh api
+            repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews
+            --jq '.[] | select(.body | startswith("<!-- control-room:review -->")) | .body'`)
+            and any replies on their threads. Those are your prior rounds.
+            REVIEW.md's "Reviewing across rounds" section tells you how they
+            change this review — which blocking items were already raised and
+            whether the new commits addressed them (mark those ✅), which the
+            author replied to without changing (mark those 💬), which non-blocking
+            observations you've already made, and when the right move is to
+            approve and land the PR rather than keep hunting.
 
-            Read these two files first and follow them exactly:
+            Read these files first and follow them exactly:
 
-            - `.claude-review/REVIEW.md` — how to review. The sections to
-              write, what you are expected to raise, what to leave alone.
+            - `.claude-review/REVIEW.md` — how to review. The categories, the
+              severity labels, the verdicts, what to raise, what to leave alone.
             - `.claude-review/BASELINE.md` — the language-agnostic rules the
-              change must hold to. Flag violations of its Rules section. Do not
-              flag anything in its Preferences section or its linter section.
+              change must hold to. Each rule is tagged with its category and
+              default severity; a finding inherits that tag. Flag violations of
+              its Rules section. Do not flag anything in its Preferences section
+              or its linter section.
+            - `.claude-review/EXAMPLE.md` — a filled-in review. Match its shape:
+              the summary body format and how findings read.
 
             Then list `.claude-review/languages/` and read the file for each
             language this PR actually touches, if one exists. Those sharpen the
@@ -157,6 +197,53 @@ jobs:
 
             ${{ inputs.verify_commands != '' && 'Dependencies are installed. Run these commands and report the real output:' || 'Dependencies are NOT installed in this sandbox. Do not claim you ran the typechecker or linter — say plainly that you reviewed by reading.' }}
             ${{ inputs.verify_commands }}
+
+      # Belt and suspenders. Claude retries its own POST (dropping bad inline
+      # comments, downgrading APPROVE to COMMENT), but if it still didn't land a
+      # review — a malformed payload, an off-diff comment it couldn't place, or
+      # it died mid-run — re-post the summary it already wrote, stripped of the
+      # inline comments that are the usual cause of a 422. Better a summary-only
+      # review than none. Only fires when no review landed and Claude left its
+      # payload behind; a workflow-validation skip leaves no payload and falls
+      # through to the next step.
+      - name: Fall back to a summary-only review
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          SINCE: ${{ steps.started.outputs.at }}
+          REVIEW_MARKER: '<!-- control-room:review -->'
+        run: |
+          set -euo pipefail
+
+          posted=$(gh api "repos/$REPO/pulls/$PR/reviews" --paginate \
+            --jq "[.[] | select(.body | startswith(\"$REVIEW_MARKER\")) | select(.submitted_at >= \"$SINCE\")] | length")
+          if [ "$posted" -gt 0 ]; then
+            echo "Review already landed; no fallback needed."
+            exit 0
+          fi
+
+          payload="$RUNNER_TEMP/review.json"
+          if [ ! -f "$payload" ]; then
+            echo "No saved payload; nothing to fall back to."
+            exit 0
+          fi
+
+          # Strip the inline comments (the usual 422 cause) and post the summary.
+          summary="$RUNNER_TEMP/review-summary.json"
+          jq 'del(.comments)' "$payload" > "$summary"
+
+          if gh api "repos/$REPO/pulls/$PR/reviews" --input "$summary"; then
+            echo "Posted summary-only review."
+            exit 0
+          fi
+
+          # Last resort: the event itself was rejected (e.g. APPROVE on a token
+          # that can't approve). Downgrade to a plain COMMENT and try once more.
+          echo "Summary review rejected; retrying as COMMENT."
+          jq '.event = "COMMENT"' "$summary" > "$summary.comment"
+          gh api "repos/$REPO/pulls/$PR/reviews" --input "$summary.comment"
 
       # The action exits 0 in several silent cases — most commonly workflow
       # validation ("the workflow file must have identical content to the
@@ -174,11 +261,15 @@ jobs:
           BASE: ${{ github.event.pull_request.base.ref }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           MARKER: '<!-- control-room:no-review -->'
+          REVIEW_MARKER: '<!-- control-room:review -->'
         run: |
           set -euo pipefail
 
-          posted=$(gh api "repos/$REPO/issues/$PR/comments?since=$SINCE" \
-            --jq '[.[] | select(.user.login | test("claude"; "i"))] | length')
+          # The review is now submitted via the reviews endpoint, not as an
+          # issue comment. A review counts as posted if it carries the review
+          # marker and landed after this run started.
+          posted=$(gh api "repos/$REPO/pulls/$PR/reviews" --paginate \
+            --jq "[.[] | select(.body | startswith(\"$REVIEW_MARKER\")) | select(.submitted_at >= \"$SINCE\")] | length")
           if [ "$posted" -gt 0 ]; then
             echo "Review posted; nothing to do."
             exit 0
