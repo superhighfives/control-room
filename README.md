@@ -2,15 +2,82 @@
 
 One review standard and one set of baseline rules, shared across my repos.
 
-- [`REVIEW.md`](REVIEW.md) — *how* to review. Sections, what to raise, what to
-  leave alone.
+- [`REVIEW.md`](REVIEW.md) — *how* to review. Categories, severities, verdicts,
+  what to raise, what to leave alone.
 - [`BASELINE.md`](BASELINE.md) — *what* the code has to hold to. Hard rules,
-  plus an explicit do-not-flag list.
+  each tagged with its category and default severity, plus an explicit
+  do-not-flag list.
+- [`EXAMPLE.md`](EXAMPLE.md) — a filled-in review, so the format is shown, not
+  just described.
 - [`.github/workflows/review.yml`](.github/workflows/review.yml) — reusable
-  workflow that runs both against a pull request.
+  workflow that runs them against a pull request.
 
 Each repo's own `CLAUDE.md` adds to `BASELINE.md` and wins where they disagree.
 Nothing needs syncing — the workflow checks this repo out at review time.
+
+## How a review reads
+
+A review looks at the change through five independent lenses, each with its own
+verdict, so the author can see which part of the change is holding merge up:
+
+| Lens | Covers |
+| --- | --- |
+| 🔒 Security | injection, secrets, authz/authn, unvalidated input across a trust boundary |
+| 🧹 Code Quality | correctness bugs, edge cases, races, dead/duplicated paths, error handling, missing tests |
+| ⚡ Performance | N+1s, hot-path work, unbounded memory, blocking I/O, complexity that bites at scale |
+| 📝 Docs | comments, READMEs, changelogs, and public-API docs the change makes wrong or omits |
+| 🤖 Agents | the AI/LLM surface: prompts, tool/function defs, agent & MCP configs, model IDs, output handling |
+
+Every finding carries one severity label, and the label alone decides whether it
+blocks:
+
+| Severity | Blocks? |
+| --- | --- |
+| ⛔ `[BLOCKING]` | always — wrong and must be fixed before merge |
+| ⚠️ `[WARNING]` | only if it has production impact; a warning that can't hurt prod approves with comments |
+| ℹ️ `[INFO]` · 💡 `[SUGGESTION]` · ❓ `[QUESTION]` | never |
+
+Findings in test files, fixtures, or examples, and any the author has already
+justified, are downgraded and never block.
+
+Each lens rolls up to a verdict, and the worst lens sets the overall verdict —
+which the workflow submits as a real GitHub review state:
+
+| Verdict | State | Effect |
+| --- | --- | --- |
+| 🔴 Blocked | `--request-changes` | gates merge under branch protection |
+| 🟡 Approved with comments | `--comment` | advisory, doesn't gate |
+| 🟢 Approved | `--approve` | clean |
+
+⛔ and ⚠️ findings that land on lines the diff touched are posted as **inline
+review comments** anchored to the code; everything else — the verdict table, the
+rollups, and any finding on an untouched line — lives in the review summary. It
+all goes up in one atomic call, so a round never half-posts.
+
+Across rounds, a finding the author fixed in a later push is marked ✅ and one
+they replied to without changing is marked 💬, so it's obvious what's been
+handled.
+
+### Making blocking actually block
+
+A 🔴 verdict submits a real *request changes* review, but GitHub only turns that
+into a merge gate if the repo asks it to. One-time setup, per repo:
+
+- **Settings → Branches → add a rule** for your default branch.
+- **Require a pull request before merging**, and **require approvals** (1 is
+  enough) — a pending *request changes* then holds the merge.
+- **Dismiss stale pull request approvals when new commits are pushed**, so a
+  fix has to be re-reviewed rather than riding an old green.
+
+Without a branch rule the states are advisory: the 🔴 is visible and honest, but
+nothing stops a merge. Two caveats worth knowing:
+
+- **A bot can't approve on some token setups.** If `APPROVE` is rejected, the
+  workflow resubmits as a plain comment and says it meant to approve — so a
+  clean PR never fails the run, it just doesn't carry a green approval.
+- **The reviewer can't approve *and* be the required approval.** If you gate on
+  human approval, treat the 🔴 as the blocker and a human as the green light;
+  the review requesting changes is what enforces the standard.
 
 ## Why this exists
 
@@ -112,19 +179,23 @@ sharpened version. Adding a language is one new file; nothing else changes.
 
 The review runs again on every push, and each run is stateless — it reads the
 whole diff fresh. To keep that from meaning "hunt for a new nit forever," each
-round first reads its own earlier reviews on the PR (every review starts with a
-`<!-- control-room:review -->` marker so they're findable) and calibrates:
+round first reads its own earlier reviews on the PR (every review body starts
+with a `<!-- control-room:review -->` marker so they're findable) and
+calibrates:
 
-- **Blocking** is re-derived every round, so a new push that introduces a new
-  blocking bug still gets caught.
-- **Non-blocking** shrinks instead of refreshing. An observation you already
-  made and pushed past is one you've chosen to accept, so it isn't raised again
-  — and the reviewer doesn't manufacture a replacement.
+- **Blocking severities (⛔ and dangerous ⚠️)** are re-derived every round, so a
+  new push that introduces a new blocking bug still gets caught. A blocker fixed
+  since last round is marked ✅ once, then dropped.
+- **Non-blocking severities (ℹ️ / 💡 / ❓ and safe ⚠️)** shrink instead of
+  refreshing. An observation you already made and pushed past is one you've
+  chosen to accept, so it isn't raised again — and the reviewer doesn't
+  manufacture a replacement.
 
-When blocking is clear and the author has already iterated, the review leads
-with a verdict — ready to merge, production-ready even if not perfect — and
-stops. A cleared PR converges to "done" in a couple of rounds instead of
-generating fresh nits indefinitely.
+As blocking clears, the overall verdict climbs 🔴 → 🟡 → 🟢. When no lens is
+🔴 and the author has already iterated, the review approves, leads with a verdict
+— ready to merge, production-ready even if not perfect — and stops. A cleared PR
+converges to "done" in a couple of rounds instead of generating fresh nits
+indefinitely.
 
 ## PRs that change the workflow can't be reviewed
 
