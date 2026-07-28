@@ -106,10 +106,11 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Dependabot opens PRs as a bot actor, which the action gates off by
-          # default ("Workflow initiated by non-human actor"). Allowlist it so
-          # dependency-bump PRs get the same review as human ones.
-          allowed_bots: dependabot[bot]
+          # Dependabot and repo automation (e.g. update-color-names.yml) open
+          # PRs as bot actors, which the action gates off by default ("Workflow
+          # initiated by non-human actor"). Allowlist both so their PRs get the
+          # same review as human ones. Still scoped — other bots stay gated.
+          allowed_bots: dependabot[bot],github-actions[bot]
           additional_permissions: |
             actions: read
           # Without this the job is a black box: Claude runs for minutes,
