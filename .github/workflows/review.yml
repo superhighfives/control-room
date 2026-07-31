@@ -120,8 +120,14 @@ jobs:
           # Agent mode grants no tools by default, so the review had no way to
           # run gh, git blame, or the verify commands. Bash is broad, but fork
           # PRs don't receive secrets and the token is read-mostly.
+          #
+          # Monitor is needed for slow verify commands: a build that outlives
+          # the agent's 300s per-Bash timeout is pushed to the background, and
+          # the agent uses Monitor to wait for it to finish. Without Monitor
+          # allowed, that wait is denied in the headless run and the agent
+          # abandons the review mid-build — a green check with no review posted.
           claude_args: |
-            --allowedTools Bash,Read,Grep,Glob
+            --allowedTools Bash,Read,Grep,Glob,Monitor
           prompt: |
             Review pull request #${{ github.event.pull_request.number }} in
             ${{ github.repository }}, then submit it as a single POST to the
