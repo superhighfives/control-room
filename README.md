@@ -168,7 +168,8 @@ jobs:
 of the thing that goes wrong, not the syntax that causes it. Files in
 [`languages/`](languages/) sharpen those into the specific forms a rule takes:
 `as` and `any` in [TypeScript](languages/typescript.md), `!` and `try!` in
-[Swift](languages/swift.md).
+[Swift](languages/swift.md), waterfalls and hydration bugs in
+[React](languages/react.md).
 
 The reviewer reads the baseline, then only the language files a PR actually
 touches. A language with no file still gets reviewed — against the baseline and

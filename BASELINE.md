@@ -64,6 +64,18 @@ between users. Keep per-request state in the request scope.
 ⚠️ 🧹 **New public functions get a test.** Behaviour-preserving refactors don't need
 new tests. Bug fixes do — one that fails without the fix.
 
+⚠️ 🧹 **Don't add a flag, downcast, or parallel path to force a mismatched
+boundary to fit.** A new parameter that only exists to route around an
+abstraction, an `as`-style escape hatch, or a second near-duplicate path is
+usually a sign the boundary is wrong, not that the change is finished. Reshape
+the boundary first, or say explicitly why reshaping is out of scope this time.
+
+⚠️ 🧹 **Don't build on an unverified assumption about the codebase.** "This is
+probably unused," "this should be safe," "nothing else calls this" — if it
+wasn't checked (grep, read the call site, run it), it's a guess, not a fact.
+Verify it, or flag it as unverified rather than proceeding as if it were
+confirmed.
+
 Rules on the AI/LLM surface (🤖) live in each repo's own `CLAUDE.md` where that
 surface exists — an unvalidated tool argument, an injectable prompt, or a
 hardcoded model ID is reviewed against the same Rules above, just under the 🤖
@@ -76,6 +88,10 @@ non-blocking note, not to explain that you're not flagging them. Raising one
 "but only as a preference" is still noise. They're for Claude writing code, not
 grounds for blocking a PR.
 
+- Before extending existing code, understand what it actually does — a clean
+  name or comment describes intent, not proof the behaviour matches it.
+- Prefer reshaping an overloaded type, function, or config over piling another
+  case onto one that's already carrying too much.
 - Prefer early returns to `else` branches.
 - Don't extract a single-use helper preemptively — inline it unless it's reused
   or hides a genuinely complex boundary.
