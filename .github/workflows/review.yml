@@ -126,8 +126,25 @@ jobs:
           # the agent uses Monitor to wait for it to finish. Without Monitor
           # allowed, that wait is denied in the headless run and the agent
           # abandons the review mid-build — a green check with no review posted.
+          #
+          # Task/Agent orchestration tools are NOT gated by --allowedTools —
+          # they stay available regardless of that allowlist, so they must be
+          # explicitly denied. On a large diff the reviewer sometimes decides
+          # to "parallelize" by spawning background sub-agents per area (API,
+          # web, iOS, ...) via the Agent tool and TaskCreate/TaskUpdate, the
+          # same pattern the interactive Claude Code harness uses for big
+          # tasks. That pattern depends on a later conversation turn to
+          # deliver each sub-agent's completion notification — a mechanism
+          # that doesn't exist in this action's single-shot headless run. The
+          # coordinating agent then has nothing to wait on, gives up with a
+          # stray status line like "the review agents are still running in
+          # the background, I'll report back once they finish" as its final
+          # result, and exits having never written the review payload — a
+          # green check with no review posted. Force a synchronous, single-
+          # agent review instead.
           claude_args: |
             --allowedTools Bash,Read,Grep,Glob,Monitor
+            --disallowedTools Agent,Task,TaskCreate,TaskGet,TaskList,TaskOutput,TaskStop,TaskUpdate
           prompt: |
             Review pull request #${{ github.event.pull_request.number }} in
             ${{ github.repository }}, then submit it as a single POST to the
