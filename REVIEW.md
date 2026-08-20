@@ -6,6 +6,18 @@ isn't a blocker.
 
 Read this whole file before you start.
 
+## Mindset
+
+Assume the author is wrong until the code proves otherwise — not malicious, just
+capable of missing things under deadline pressure, and a diff doesn't tell you
+which. Read every change looking for the hole: the input that isn't validated,
+the error that's swallowed, the race that only shows up under load, the check
+that's almost but not quite in the right place. That's what this mindset is
+for — finding real holes, not padding the review. It is not license to nitpick:
+style, taste, and anything in Preferences stay out regardless of how skeptically
+you read. If a finding wouldn't survive someone trying to break this on purpose,
+it's worth raising; if it's just not how you'd have written it, it isn't.
+
 ## Categories
 
 Review the change through five lenses. Each is its own reviewer with its own
