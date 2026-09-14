@@ -94,16 +94,27 @@ approve, as long as it isn't also the PR's author:
    elsewhere — it has no bearing on who can reuse this workflow file; anyone
    doing that brings their own App and secrets regardless).
 2. **Generate a private key** for it (the App's settings → Private keys) and
-   **install the App** on every repo that uses this workflow.
-3. Store the private key as a per-repo secret named `APP_PRIVATE_KEY` — a
-   personal GitHub account has no org-wide secrets, so this has to be set on
-   each repo individually: `gh secret set APP_PRIVATE_KEY --repo owner/repo <
-   key.pem`.
-4. Add it to each caller's `secrets:` block alongside `CLAUDE_CODE_OAUTH_TOKEN`
-   (see Usage below) — not `secrets: inherit`. This job runs an AI agent with
-   broad Bash access over PR content, which is exactly the shape of thing
-   prompt injection targets; `inherit` would hand it every secret the repo
-   has, not just the two this workflow actually needs.
+   **install the App** on **all repositories** on the account — that one
+   installation setting means every future repo is covered automatically,
+   with nothing more to do on the App side ever again.
+3. Save the downloaded `.pem` somewhere stable and out of `~/Downloads` —
+   `~/.config/control-room/app-private-key.pem` is what
+   [`scripts/add-repo.sh`](scripts/add-repo.sh) expects by default. This is
+   the one thing that *doesn't* propagate automatically: a personal GitHub
+   account has no org-wide secrets, so each repo needs its own copy of the
+   same key. Run `scripts/add-repo.sh <repo>` for each one — it sets the
+   `APP_PRIVATE_KEY` secret and warns if `CLAUDE_CODE_OAUTH_TOKEN` or the
+   caller workflow file is still missing.
+4. Add `APP_PRIVATE_KEY` to each caller's `secrets:` block alongside
+   `CLAUDE_CODE_OAUTH_TOKEN` (see Usage below) — not `secrets: inherit`. This
+   job runs an AI agent with broad Bash access over PR content, which is
+   exactly the shape of thing prompt injection targets; `inherit` would hand
+   it every secret the repo has, not just the two this workflow actually
+   needs.
+
+If these repos ever move under a GitHub Organization instead of a personal
+account, step 3 goes away entirely — org secrets are shared account-wide, so
+`APP_PRIVATE_KEY` would only need setting once, ever.
 
 The App's ID is hardcoded in `review.yml` (App ID `4944334`,
 "control-room-review") — it isn't sensitive, only the private key is.
