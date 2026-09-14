@@ -89,10 +89,22 @@ approve, as long as it isn't also the PR's author:
 1. **Register the App** once, under the account that owns these repos:
    [github.com/settings/apps/new](https://github.com/settings/apps/new).
    Uncheck the webhook, grant repository permissions **Pull requests: Read &
-   write** and **Contents: Read-only**, and restrict installation to "Only on
-   this account" (that setting controls who can install *this* App
+   write** and **Contents: Read and write**, and restrict installation to
+   "Only on this account" (that setting controls who can install *this* App
    elsewhere — it has no bearing on who can reuse this workflow file; anyone
    doing that brings their own App and secrets regardless).
+
+   **`Contents: Read and write`, not Read-only, even though this workflow
+   never pushes code.** GitHub's branch protection only counts an approving
+   review toward "require approvals" when it comes from an identity with
+   write permission to the repo — undocumented explicitly for GitHub Apps,
+   but confirmed empirically: with `Contents: Read-only`, the App's review
+   landed as a genuine `APPROVED` state, yet `reviewDecision` stayed
+   `REVIEW_REQUIRED`. Read-only was the more conservative first choice, but
+   it silently defeats the entire point of the App — a 🟢 that still can't
+   clear the merge gate. This is a real permission increase (the App *could*
+   push code, though nothing here asks it to) — worth knowing if you're
+   evaluating what a leaked `APP_PRIVATE_KEY` could do.
 2. **Generate a private key** for it (the App's settings → Private keys) and
    **install the App** on **all repositories** on the account — that one
    installation setting means every future repo is covered automatically,
