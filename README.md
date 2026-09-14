@@ -60,24 +60,56 @@ handled.
 
 ### Making blocking actually block
 
-A 🔴 verdict submits a real *request changes* review, but GitHub only turns that
-into a merge gate if the repo asks it to. One-time setup, per repo:
+A 🔴 verdict submits a real *request changes* review, and a 🟢 submits a real
+*approve* — but GitHub only turns either into a merge gate if the repo asks it
+to. One-time setup, per repo:
 
 - **Settings → Branches → add a rule** for your default branch.
 - **Require a pull request before merging**, and **require approvals** (1 is
-  enough) — a pending *request changes* then holds the merge.
+  enough) — a pending *request changes* then holds the merge, and a genuine
+  🟢 satisfies it.
 - **Dismiss stale pull request approvals when new commits are pushed**, so a
   fix has to be re-reviewed rather than riding an old green.
 
-Without a branch rule the states are advisory: the 🔴 is visible and honest, but
-nothing stops a merge. Two caveats worth knowing:
+Without a branch rule the states are advisory: the verdict is visible and
+honest, but nothing stops a merge.
 
-- **A bot can't approve on some token setups.** If `APPROVE` is rejected, the
-  workflow resubmits as a plain comment and says it meant to approve — so a
-  clean PR never fails the run, it just doesn't carry a green approval.
-- **The reviewer can't approve *and* be the required approval.** If you gate on
-  human approval, treat the 🔴 as the blocker and a human as the green light;
-  the review requesting changes is what enforces the standard.
+#### Why `APPROVE` needs a GitHub App
+
+The default `GITHUB_TOKEN` every Actions workflow gets is **hard-blocked from
+submitting an `APPROVE` review**, unconditionally — no `permissions:` block
+fixes this, it's a GitHub platform restriction so a workflow can't
+rubber-stamp its own PR. Without a workaround, every 🟢 verdict 422s: the
+review body still says "Approved," but the state GitHub actually records is
+`COMMENTED`, which never satisfies "require approvals."
+
+The fix is a dedicated GitHub App — a real, separate identity that *can*
+approve, as long as it isn't also the PR's author:
+
+1. **Register the App** once, under the account that owns these repos:
+   [github.com/settings/apps/new](https://github.com/settings/apps/new).
+   Uncheck the webhook, grant repository permissions **Pull requests: Read &
+   write** and **Contents: Read-only**, and restrict installation to "Only on
+   this account" (that setting controls who can install *this* App
+   elsewhere — it has no bearing on who can reuse this workflow file; anyone
+   doing that brings their own App and secrets regardless).
+2. **Generate a private key** for it (the App's settings → Private keys) and
+   **install the App** on every repo that uses this workflow.
+3. Store the private key as a per-repo secret named `APP_PRIVATE_KEY` — a
+   personal GitHub account has no org-wide secrets, so this has to be set on
+   each repo individually: `gh secret set APP_PRIVATE_KEY --repo owner/repo <
+   key.pem`.
+4. Point each caller's `secrets:` block at `inherit` (see Usage below) so the
+   secret reaches the reusable workflow without listing it by name everywhere.
+
+The App's ID is hardcoded in `review.yml` (App ID `4944334`,
+"control-room-review") — it isn't sensitive, only the private key is.
+
+One caveat survives even with a working App: **the reviewer still shouldn't be
+the only approval that matters.** If your actual policy wants a human
+sign-off, set "require approvals" to 2 or otherwise make sure the bot's 🟢
+isn't standing in for one — 🔴 is the automatic blocker, a human review is the
+intentional green light.
 
 ## Why this exists
 
@@ -115,11 +147,17 @@ permissions:
 jobs:
   review:
     uses: superhighfives/control-room/.github/workflows/review.yml@main
-    secrets:
-      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    secrets: inherit
 ```
 
 That works with no dependency install — the reviewer reads the code and says so.
+
+**`secrets: inherit`, not a named list.** The reusable workflow needs both
+`CLAUDE_CODE_OAUTH_TOKEN` and `APP_PRIVATE_KEY` (see "Making blocking actually
+block" below for what that second one is and why). `inherit` passes through
+whatever secrets this repo has under those names without listing them here —
+and means adding a new required secret later doesn't require touching every
+caller again.
 
 **The `permissions` block is required, not optional.** A called workflow can
 only narrow the caller's permissions, never widen them. If your repo's default
@@ -146,8 +184,7 @@ jobs:
       verify_commands: |
         pnpm typecheck
         pnpm lint
-    secrets:
-      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    secrets: inherit
 ```
 
 ### Inputs
