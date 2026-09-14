@@ -99,8 +99,11 @@ approve, as long as it isn't also the PR's author:
    personal GitHub account has no org-wide secrets, so this has to be set on
    each repo individually: `gh secret set APP_PRIVATE_KEY --repo owner/repo <
    key.pem`.
-4. Point each caller's `secrets:` block at `inherit` (see Usage below) so the
-   secret reaches the reusable workflow without listing it by name everywhere.
+4. Add it to each caller's `secrets:` block alongside `CLAUDE_CODE_OAUTH_TOKEN`
+   (see Usage below) — not `secrets: inherit`. This job runs an AI agent with
+   broad Bash access over PR content, which is exactly the shape of thing
+   prompt injection targets; `inherit` would hand it every secret the repo
+   has, not just the two this workflow actually needs.
 
 The App's ID is hardcoded in `review.yml` (App ID `4944334`,
 "control-room-review") — it isn't sensitive, only the private key is.
@@ -147,17 +150,21 @@ permissions:
 jobs:
   review:
     uses: superhighfives/control-room/.github/workflows/review.yml@main
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
 ```
 
 That works with no dependency install — the reviewer reads the code and says so.
 
-**`secrets: inherit`, not a named list.** The reusable workflow needs both
-`CLAUDE_CODE_OAUTH_TOKEN` and `APP_PRIVATE_KEY` (see "Making blocking actually
-block" below for what that second one is and why). `inherit` passes through
-whatever secrets this repo has under those names without listing them here —
-and means adding a new required secret later doesn't require touching every
-caller again.
+**List secrets by name — never `secrets: inherit`.** This job runs an AI agent
+with broad Bash access over PR content, which is exactly the shape of thing
+prompt injection targets. `inherit` hands that job every secret the repo has,
+not just the two this workflow actually needs; an explicit list is a real,
+GitHub-enforced boundary — a secret you didn't name here never enters this
+job's environment, no matter what runs inside it. `APP_PRIVATE_KEY` is the
+GitHub App key from "Making blocking actually block" below; without it the
+run still works, just without real `APPROVE` capability.
 
 **The `permissions` block is required, not optional.** A called workflow can
 only narrow the caller's permissions, never widen them. If your repo's default
@@ -184,7 +191,9 @@ jobs:
       verify_commands: |
         pnpm typecheck
         pnpm lint
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
 ```
 
 ### Inputs
