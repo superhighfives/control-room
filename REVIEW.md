@@ -82,13 +82,15 @@ to one overall verdict that maps to a real GitHub review state.
 | Verdict | Emoji | GitHub state | When |
 | --- | --- | --- | --- |
 | Blocked | 🔴 | `--request-changes` | Any ⛔, or any ⚠️ with production impact that isn't exempt. |
-| Approved with comments | 🟡 | `--comment` | Findings exist, but none block: non-dangerous ⚠️, or any ℹ️ / 💡 / ❓. |
+| Approved with comments | 🟡 | `--approve` | Findings exist, but none block: non-dangerous ⚠️, or any ℹ️ / 💡 / ❓. |
 | Approved | 🟢 | `--approve` | Clean, or only exempt findings. |
 
 **Overall verdict** is the worst category verdict: any 🔴 → request changes;
-otherwise any 🟡 → comment; otherwise 🟢 → approve. The overall state is what
-the review is *submitted* as; the per-category verdicts are advisory and live in
-the body so the author sees the breakdown.
+otherwise (🟡 or 🟢) → approve. 🟡 and 🟢 both submit as a real `APPROVE` —
+the distinction is for the author's benefit (comments worth reading vs.
+nothing to say), not a merge gate; only 🔴 actually blocks. The overall
+state is what the review is *submitted* as; the per-category verdicts are
+advisory and live in the body so the author sees the breakdown.
 
 ### State legend
 

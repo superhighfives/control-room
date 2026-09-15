@@ -46,7 +46,7 @@ which the workflow submits as a real GitHub review state:
 | Verdict | State | Effect |
 | --- | --- | --- |
 | 🔴 Blocked | `--request-changes` | gates merge under branch protection |
-| 🟡 Approved with comments | `--comment` | advisory, doesn't gate |
+| 🟡 Approved with comments | `--approve` | worth reading, doesn't gate |
 | 🟢 Approved | `--approve` | clean |
 
 ⛔ and ⚠️ findings that land on lines the diff touched are posted as **inline
@@ -60,16 +60,22 @@ handled.
 
 ### Making blocking actually block
 
-A 🔴 verdict submits a real *request changes* review, and a 🟢 submits a real
-*approve* — but GitHub only turns either into a merge gate if the repo asks it
-to. One-time setup, per repo:
+A 🔴 verdict submits a real *request changes* review; both 🟡 and 🟢 submit a
+real *approve* — but GitHub only turns any of these into a merge gate if the
+repo asks it to. One-time setup, per repo:
 
 - **Settings → Branches → add a rule** for your default branch.
 - **Require a pull request before merging**, and **require approvals** (1 is
   enough) — a pending *request changes* then holds the merge, and a genuine
-  🟢 satisfies it.
+  approve (🟡 or 🟢) satisfies it.
 - **Dismiss stale pull request approvals when new commits are pushed**, so a
   fix has to be re-reviewed rather than riding an old green.
+
+**Why 🟡 approves instead of just commenting:** the whole point of "approved
+with comments" is that nothing found is worth blocking on — if it gated
+merge the same way `COMMENT` does under branch protection, that's
+indistinguishable from a real blocker, which defeats the category. Only 🔴
+should ever hold a PR up.
 
 Without a branch rule the states are advisory: the verdict is visible and
 honest, but nothing stops a merge.

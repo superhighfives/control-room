@@ -201,7 +201,10 @@ jobs:
             Rules for the payload:
 
             - `event` comes from your overall verdict (see REVIEW.md's Verdicts
-              table): 🔴 → `REQUEST_CHANGES`, 🟡 → `COMMENT`, 🟢 → `APPROVE`.
+              table): 🔴 → `REQUEST_CHANGES`; 🟡 or 🟢 → `APPROVE`. Both 🟡 and
+              🟢 approve for real - the emoji distinction is for the author
+              (worth reading vs. nothing to say), not a merge gate. Only 🔴
+              should ever hold a PR up.
             - `body` MUST begin with the exact line `<!-- control-room:review -->`
               so later rounds can find it, followed by the overall verdict, the
               category table, and the per-category rollups.
