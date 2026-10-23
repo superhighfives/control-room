@@ -143,7 +143,7 @@ jobs:
           # PRs as bot actors, which the action gates off by default ("Workflow
           # initiated by non-human actor"). Allowlist both so their PRs get the
           # same review as human ones. Still scoped — other bots stay gated.
-          allowed_bots: dependabot[bot],github-actions[bot]
+          allowed_bots: dependabot[bot],github-actions[bot],claude[bot]
           additional_permissions: |
             actions: read
           # Without this the job is a black box: Claude runs for minutes,
